@@ -1,0 +1,34 @@
+# Core - Compatible con Django 5.0
+Django==5.0.1
+python-dotenv==1.0.0
+pytz==2024.1
+
+# API
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+django-cors-headers==4.3.1
+
+# Scraping (tus herramientas actuales)
+playwright==1.40.0
+requests==2.31.0
+
+# Development
+django-extensions==3.2.3
+
+# Utilities
+django-environ==0.11.2
+django-filter==23.5
+
+# Production básico
+whitenoise==6.6.0
+
+# ====== INSTALAR DESPUÉS MANUALMENTE ======
+# Estas librerías pueden dar problemas, instálalas una por una después:
+
+# psycopg2-binary==2.9.9  # Requiere libpq-dev
+# redis==5.0.1  # Para Celery
+# celery==5.3.6  # Para tareas asíncronas
+# django-celery-beat==2.6.0  # Para tareas programadas
+# django-celery-results==2.5.1  # Para guardar resultados
+# ipython==8.19.0  # Para shell mejorado
+# gunicorn==21.2.0  # Para producción
