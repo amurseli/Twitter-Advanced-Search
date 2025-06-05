@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test de Scraping</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test de Scraping</h1>
+    
+    <div class="warning">
+        <strong>⚠️ Atención:</strong> Esto va a ejecutar un scraping de prueba con:
+        <ul>
+            <li>La primera cuenta X activa</li>
+            <li>Los primeros 2 usuarios objetivo</li>
+            <li>Últimos 7 días</li>
+            <li>Tipo: tweets FROM (de esos usuarios)</li>
+        </ul>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit">Ejecutar Scraping de Prueba</button>
+    </form>
+    
+    <p><a href="/admin/">← Volver al admin</a></p>
+</body>
+</html>

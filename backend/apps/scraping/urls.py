@@ -1,5 +1,8 @@
 from django.urls import path
+from . import views
+
+app_name = 'scraping'
 
 urlpatterns = [
-    # Add URL patterns here
+    path('test/', views.test_scraping, name='test_scraping'),
 ]

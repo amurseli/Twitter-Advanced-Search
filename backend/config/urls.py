@@ -8,8 +8,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # path('api/v1/', include('apps.api.urls')),      # Comentado por ahora
-    # path('api/auth/', include('apps.accounts.urls')), # Comentado por ahora
+    path('scraping/', include('apps.scraping.urls')),  # Esta línea incluye las URLs de scraping
 ]
 
 if settings.DEBUG:
