@@ -32,7 +32,7 @@ def test_scraping(request):
             name="Test de scraping",
             account=account,
             start_date=datetime(2024, 11, 20, 0, 0, 0),   # 20 nov 2024
-            end_date=datetime(2024, 11, 30, 23, 59, 59),  # 30 nov 2024
+            end_date=datetime(2025,3, 10, 23, 59, 59),  # 30 nov 2024
             query_type='from',
             created_by=request.user
         )
