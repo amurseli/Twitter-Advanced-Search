@@ -33,6 +33,7 @@ class XAccount(models.Model):
     class Meta:
         verbose_name = "Cuenta X"
         verbose_name_plural = "Cuentas X"
+        ordering = ['username']  
     
     def __str__(self):
         return f"@{self.username}"

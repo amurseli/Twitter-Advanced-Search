@@ -1,6 +1,3 @@
-"""
-URL Configuration for X Advanced Search
-"""
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -8,7 +5,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('scraping/', include('apps.scraping.urls')),  # Esta línea incluye las URLs de scraping
+    path('api/', include('apps.api.urls')),
+    path('scraping/', include('apps.scraping.urls')),
 ]
 
 if settings.DEBUG:
