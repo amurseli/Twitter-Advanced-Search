@@ -91,7 +91,8 @@ body {
 .form-textarea {
   resize: vertical;
   min-height: 80px;
-  font-family: inherit;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  line-height: 1.5;
 }
 
 /* Grupo de fechas */
@@ -135,6 +136,61 @@ body {
   margin: 0;
   cursor: pointer;
   color: #e0e0e0;
+}
+
+/* Query type selector - Segmented control */
+.query-type-selector {
+  display: flex;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.query-type-option {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: #a0a0a0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.query-type-option:hover:not(.active) {
+  background: #242424;
+  color: #e0e0e0;
+}
+
+.query-type-option.active {
+  background: #f97316;
+  color: white;
+}
+
+.query-type-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Query type help text */
+.query-type-help {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #808080;
+  font-style: italic;
+}
+
+/* Form help text */
+.form-help {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #606060;
 }
 
 /* Botón principal */
@@ -256,4 +312,20 @@ body {
 .btn-primary:disabled {
   cursor: not-allowed;
   transform: none !important;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .form-card {
+    padding: 1.5rem;
+  }
+  
+  .query-type-option {
+    font-size: 0.85rem;
+    padding: 0.6rem 0.8rem;
+  }
+  
+  .date-group {
+    grid-template-columns: 1fr;
+  }
 }

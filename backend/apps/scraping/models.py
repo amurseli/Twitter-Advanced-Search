@@ -79,8 +79,8 @@ class ScrapingJob(models.Model):
     ]
     
     # Configuración del job
-    name = models.CharField(max_length=200, blank=True,
-                          help_text="Nombre descriptivo, ej: 'Tweets enero 2024'")
+    name = models.CharField(max_length=200, blank=True, default='',
+                          help_text="Nombre descriptivo opcional")
     account = models.ForeignKey(XAccount, on_delete=models.CASCADE,
                               help_text="Con qué cuenta hacemos el scraping")
     targets = models.ManyToManyField(SearchTarget,

@@ -7,7 +7,6 @@ function App() {
   const [downloadData, setDownloadData] = useState(null)
   
   const [formData, setFormData] = useState({
-    name: '',
     account: '',
     targets: '',
     start_date: '',
@@ -50,7 +49,6 @@ function App() {
         setStatusMessage({ text: '', type: '' })
         setDownloadData(null)
         setFormData({
-          name: '',
           account: '',
           targets: '',
           start_date: '',
@@ -84,7 +82,7 @@ function App() {
       }
       
       const payload = {
-        name: formData.name,
+        name: `Job ${new Date().toISOString()}`, // Nombre automático temporal
         account: parseInt(formData.account),
         target_usernames: targetUsernames,
         start_date: startDate.toISOString(),
@@ -207,7 +205,7 @@ function App() {
       case 'download':
         return 'Descargar Resultados'
       default:
-        return 'Crear e Iniciar Trabajo'
+        return 'Buscar Tweets'
     }
   }
   
@@ -222,28 +220,26 @@ function App() {
     }
   }
   
+  const getQueryTypeHelp = () => {
+    switch (formData.query_type) {
+      case 'from':
+        return 'Buscar tweets publicados POR estos usuarios'
+      case 'to':
+        return 'Buscar tweets dirigidos A estos usuarios (respuestas)'
+      case 'mentioning':
+        return 'Buscar tweets que MENCIONEN a estos usuarios'
+      default:
+        return ''
+    }
+  }
+  
   return React.createElement('div', { className: 'app-container' },
     React.createElement('div', { className: 'content-wrapper' },
-      React.createElement('h1', { className: 'app-logo' }, 'X Advanced Search'),
+      React.createElement('h1', { className: 'app-logo' }, 'Búsqueda Avanzada de Tweets'),
       
       React.createElement('div', { className: 'form-card' },
-        React.createElement('h2', { className: 'form-title' }, 'Crear Trabajo de Scraping'),
         
         React.createElement('form', { onSubmit: handleSubmit },
-          React.createElement('div', { className: 'form-group' },
-            React.createElement('label', { className: 'form-label' }, 'Nombre del trabajo'),
-            React.createElement('input', {
-              type: 'text',
-              name: 'name',
-              value: formData.name,
-              onChange: handleInputChange,
-              className: 'form-input',
-              placeholder: 'Ej: Tweets enero 2024',
-              required: true,
-              disabled: buttonState !== 'create'
-            })
-          ),
-          
           React.createElement('div', { className: 'form-group' },
             React.createElement('label', { className: 'form-label' }, 'Cuenta X'),
             React.createElement('select', {
@@ -268,10 +264,11 @@ function App() {
               value: formData.targets,
               onChange: handleInputChange,
               className: 'form-textarea',
-              placeholder: '@usuario1\n@usuario2\n@usuario3',
+              placeholder: 'usuario1\nusuario2\nusuario3',
               required: true,
               disabled: buttonState !== 'create'
-            })
+            }),
+            React.createElement('p', { className: 'form-help' }, 'Un usuario por línea, sin @')
           ),
           
           React.createElement('div', { className: 'date-group' },
@@ -303,29 +300,22 @@ function App() {
           
           React.createElement('div', { className: 'form-group' },
             React.createElement('label', { className: 'form-label' }, 'Tipo de búsqueda'),
-            React.createElement('div', { className: 'radio-group' },
+            React.createElement('div', { className: 'query-type-selector' },
               [
-                { value: 'from', label: 'Tweets DE estos usuarios' },
-                { value: 'to', label: 'Tweets HACIA estos usuarios' },
-                { value: 'mentioning', label: 'Tweets que MENCIONAN a estos usuarios' }
+                { value: 'from', label: 'DE' },
+                { value: 'to', label: 'HACIA' },
+                { value: 'mentioning', label: 'MENCIONANDO' }
               ].map(option =>
-                React.createElement('div', { 
+                React.createElement('button', {
                   key: option.value,
-                  className: 'radio-option'
-                },
-                  React.createElement('input', {
-                    type: 'radio',
-                    name: 'query_type',
-                    id: option.value,
-                    value: option.value,
-                    checked: formData.query_type === option.value,
-                    onChange: handleInputChange,
-                    disabled: buttonState !== 'create'
-                  }),
-                  React.createElement('label', { htmlFor: option.value }, option.label)
-                )
+                  type: 'button',
+                  className: `query-type-option ${formData.query_type === option.value ? 'active' : ''}`,
+                  onClick: () => handleInputChange({ target: { name: 'query_type', value: option.value } }),
+                  disabled: buttonState !== 'create'
+                }, option.label)
               )
-            )
+            ),
+            React.createElement('p', { className: 'query-type-help' }, getQueryTypeHelp())
           ),
           
           React.createElement('button', {

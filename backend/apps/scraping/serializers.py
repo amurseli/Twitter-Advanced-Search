@@ -21,6 +21,7 @@ class ScrapingJobSerializer(serializers.ModelSerializer):
         required=False
     )
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    name = serializers.CharField(required=False, allow_blank=True)
     
     class Meta:
         model = ScrapingJob
