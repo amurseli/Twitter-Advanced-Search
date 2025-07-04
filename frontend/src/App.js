@@ -8,7 +8,6 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     account: '',
@@ -19,19 +18,16 @@ function App() {
   })
   
   useEffect(() => {
-    // Check backend status
     fetch('/api/health/')
       .then(res => res.json())
       .then(data => setStatus('Backend conectado ✅'))
       .catch(err => setStatus('Backend no disponible ❌'))
     
-    // Load accounts and targets
     loadData()
   }, [])
   
   const loadData = async () => {
     try {
-      // Cargar cuentas X
       const accountsRes = await fetch('/scraping/api/accounts/')
       console.log('Response status:', accountsRes.status)
       const accountsData = await accountsRes.json()
@@ -49,14 +45,12 @@ function App() {
     setMessage('')
     
     try {
-      // Formatear fechas con hora
       const startDate = new Date(formData.start_date)
       startDate.setHours(0, 0, 0, 0)
       
       const endDate = new Date(formData.end_date)
       endDate.setHours(23, 59, 59, 999)
       
-      // Parsear usuarios del textarea
       const targetUsernames = formData.targets
         .split(/[\n,]/)
         .map(u => u.trim().replace('@', ''))
@@ -75,6 +69,8 @@ function App() {
         query_type: formData.query_type
       }
       
+      console.log('Enviando payload:', payload)
+      
       const response = await fetch('/scraping/api/jobs/', {
         method: 'POST',
         headers: {
@@ -83,14 +79,27 @@ function App() {
         body: JSON.stringify(payload)
       })
       
+      const responseData = await response.json()
+      console.log('Response:', response.status, responseData)
+      
       if (!response.ok) {
+        // Mostrar el error específico del backend
+        if (responseData && typeof responseData === 'object') {
+          const errorMessages = []
+          for (const [field, errors] of Object.entries(responseData)) {
+            if (Array.isArray(errors)) {
+              errorMessages.push(`${field}: ${errors.join(', ')}`)
+            } else {
+              errorMessages.push(`${field}: ${errors}`)
+            }
+          }
+          throw new Error(errorMessages.join('\n'))
+        }
         throw new Error('Error al crear el job')
       }
       
-      const job = await response.json()
-      setMessage(`✅ Job "${job.name}" creado exitosamente! ID: ${job.id}`)
+      setMessage(`✅ Job "${responseData.name}" creado exitosamente! ID: ${responseData.id}`)
       
-      // Reset form
       setFormData({
         name: '',
         account: '',
@@ -100,19 +109,70 @@ function App() {
         query_type: 'from'
       })
       
-      // Opcional: iniciar el scraping automáticamente
       if (window.confirm('¿Querés iniciar el scraping ahora?')) {
-        const startRes = await fetch(`/scraping/api/jobs/${job.id}/start/`, {
+        const startRes = await fetch(`/scraping/api/jobs/${responseData.id}/start/`, {
           method: 'POST'
         })
         if (startRes.ok) {
           setMessage(prev => prev + '\n🚀 Scraping iniciado!')
+          
+          // Polling para verificar el estado
+          setMessage(prev => prev + '\n⏳ Esperando que termine...')
+          
+          const checkStatus = async () => {
+            const statusRes = await fetch(`/scraping/api/jobs/${responseData.id}/`)
+            const jobData = await statusRes.json()
+            
+            if (jobData.status === 'completed') {
+              setMessage(prev => prev + '\n✅ Scraping completado! Descargando JSON...')
+              
+              // Descargar el archivo
+              const downloadRes = await fetch(`/scraping/api/jobs/${responseData.id}/download/`)
+              
+              if (downloadRes.ok) {
+                const blob = await downloadRes.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `tweets_job_${responseData.id}.json`
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+                
+                setMessage(prev => prev + '\n💾 JSON descargado!')
+              } else {
+                setMessage(prev => prev + '\n❌ Error al descargar el JSON')
+              }
+              
+              return true
+            } else if (jobData.status === 'failed') {
+              setMessage(prev => prev + '\n❌ El scraping falló: ' + (jobData.error_message || 'Error desconocido'))
+              return true
+            }
+            
+            return false
+          }
+          
+          // Polling cada 2 segundos
+          const pollInterval = setInterval(async () => {
+            const isDone = await checkStatus()
+            if (isDone) {
+              clearInterval(pollInterval)
+            }
+          }, 2000)
+          
+          // Timeout después de 5 minutos
+          setTimeout(() => {
+            clearInterval(pollInterval)
+            setMessage(prev => prev + '\n⚠️ Timeout - verificá el estado en el admin')
+          }, 300000)
         }
       }
       
     } catch (error) {
-      console.error('Error:', error)
-      setMessage('❌ Error al crear el job: ' + error.message)
+      console.error('Error completo:', error)
+      setMessage('❌ Error:\n' + error.message)
     } finally {
       setLoading(false)
     }
@@ -130,7 +190,6 @@ function App() {
     React.createElement('div', { className: "max-w-4xl mx-auto" },
       React.createElement('h1', { className: "text-3xl font-bold mb-8" }, 'X Advanced Search'),
       
-      // Status Card
       React.createElement(Card, { className: "mb-6" },
         React.createElement(CardHeader, {},
           React.createElement(CardTitle, {}, 'Estado del Sistema')
@@ -140,14 +199,12 @@ function App() {
         )
       ),
       
-      // Form Card
       React.createElement(Card, {},
         React.createElement(CardHeader, {},
           React.createElement(CardTitle, {}, 'Crear Trabajo de Scraping')
         ),
         React.createElement(CardContent, {},
           React.createElement('form', { onSubmit: handleSubmit },
-            // Name input
             React.createElement('div', { className: "mb-4" },
               React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Nombre del trabajo'),
               React.createElement('input', {
@@ -161,7 +218,6 @@ function App() {
               })
             ),
             
-            // Account select
             React.createElement('div', { className: "mb-4" },
               React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Cuenta X'),
               React.createElement('select', {
@@ -178,7 +234,6 @@ function App() {
               )
             ),
             
-            // Targets textarea
             React.createElement('div', { className: "mb-4" },
               React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Usuarios objetivo'),
               React.createElement('textarea', {
@@ -194,7 +249,6 @@ function App() {
                 'Un usuario por línea o separados por comas. El @ es opcional.')
             ),
             
-            // Date inputs
             React.createElement('div', { className: "grid grid-cols-2 gap-4 mb-4" },
               React.createElement('div', {},
                 React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Fecha desde'),
@@ -220,7 +274,6 @@ function App() {
               )
             ),
             
-            // Query type radio buttons
             React.createElement('div', { className: "mb-6" },
               React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Tipo de búsqueda'),
               React.createElement('div', { className: "space-y-2" },
@@ -247,14 +300,10 @@ function App() {
               )
             ),
             
-            // Message
             message && React.createElement('div', {
-              className: `mb-4 p-3 rounded ${message.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`
-            }, message.split('\n').map((line, i) => 
-              React.createElement('div', { key: i }, line)
-            )),
+              className: `mb-4 p-3 rounded whitespace-pre-line ${message.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`
+            }, message),
             
-            // Submit button
             React.createElement(Button, {
               type: 'submit',
               disabled: loading,
