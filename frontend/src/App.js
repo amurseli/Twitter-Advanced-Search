@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Button } from '../components/ui/button'
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 
 function App() {
-  const [status, setStatus] = useState('checking...')
   const [accounts, setAccounts] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState('')
+  const [buttonState, setButtonState] = useState('create') // create, processing, download
+  const [statusMessage, setStatusMessage] = useState({ text: '', type: '' })
+  const [downloadData, setDownloadData] = useState(null)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -18,31 +16,56 @@ function App() {
   })
   
   useEffect(() => {
-    fetch('/api/health/')
-      .then(res => res.json())
-      .then(data => setStatus('Backend conectado ✅'))
-      .catch(err => setStatus('Backend no disponible ❌'))
-    
-    loadData()
+    loadAccounts()
   }, [])
   
-  const loadData = async () => {
+  const loadAccounts = async () => {
     try {
-      const accountsRes = await fetch('/scraping/api/accounts/')
-      console.log('Response status:', accountsRes.status)
-      const accountsData = await accountsRes.json()
-      console.log('Accounts data:', accountsData)
-      setAccounts(accountsData.results || accountsData)
+      const response = await fetch('/scraping/api/accounts/')
+      const data = await response.json()
+      setAccounts(data.results || data)
     } catch (error) {
-      console.error('Error loading data:', error)
-      setMessage('❌ Error cargando datos')
+      console.error('Error loading accounts:', error)
     }
   }
   
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setMessage('')
+    
+    if (buttonState === 'download' && downloadData) {
+      // Descargar el archivo
+      const blob = await downloadData.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = downloadData.filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      // Reset para nuevo trabajo
+      setTimeout(() => {
+        setButtonState('create')
+        setStatusMessage({ text: '', type: '' })
+        setDownloadData(null)
+        setFormData({
+          name: '',
+          account: '',
+          targets: '',
+          start_date: '',
+          end_date: '',
+          query_type: 'from'
+        })
+      }, 1000)
+      
+      return
+    }
+    
+    if (buttonState !== 'create') return
+    
+    setButtonState('processing')
+    setStatusMessage({ text: 'El trabajo se está procesando. Esto puede tomar unos minutos...', type: 'info' })
     
     try {
       const startDate = new Date(formData.start_date)
@@ -69,8 +92,7 @@ function App() {
         query_type: formData.query_type
       }
       
-      console.log('Enviando payload:', payload)
-      
+      // Crear el job
       const response = await fetch('/scraping/api/jobs/', {
         method: 'POST',
         headers: {
@@ -80,10 +102,8 @@ function App() {
       })
       
       const responseData = await response.json()
-      console.log('Response:', response.status, responseData)
       
       if (!response.ok) {
-        // Mostrar el error específico del backend
         if (responseData && typeof responseData === 'object') {
           const errorMessages = []
           for (const [field, errors] of Object.entries(responseData)) {
@@ -98,83 +118,74 @@ function App() {
         throw new Error('Error al crear el job')
       }
       
-      setMessage(`✅ Job "${responseData.name}" creado exitosamente! ID: ${responseData.id}`)
-      
-      setFormData({
-        name: '',
-        account: '',
-        targets: '',
-        start_date: '',
-        end_date: '',
-        query_type: 'from'
+      // Iniciar el scraping automáticamente
+      const startRes = await fetch(`/scraping/api/jobs/${responseData.id}/start/`, {
+        method: 'POST'
       })
       
-      if (window.confirm('¿Querés iniciar el scraping ahora?')) {
-        const startRes = await fetch(`/scraping/api/jobs/${responseData.id}/start/`, {
-          method: 'POST'
-        })
-        if (startRes.ok) {
-          setMessage(prev => prev + '\n🚀 Scraping iniciado!')
-          
-          // Polling para verificar el estado
-          setMessage(prev => prev + '\n⏳ Esperando que termine...')
-          
-          const checkStatus = async () => {
-            const statusRes = await fetch(`/scraping/api/jobs/${responseData.id}/`)
-            const jobData = await statusRes.json()
-            
-            if (jobData.status === 'completed') {
-              setMessage(prev => prev + '\n✅ Scraping completado! Descargando JSON...')
-              
-              // Descargar el archivo
-              const downloadRes = await fetch(`/scraping/api/jobs/${responseData.id}/download/`)
-              
-              if (downloadRes.ok) {
-                const blob = await downloadRes.blob()
-                const url = window.URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `tweets_job_${responseData.id}.json`
-                document.body.appendChild(a)
-                a.click()
-                window.URL.revokeObjectURL(url)
-                document.body.removeChild(a)
-                
-                setMessage(prev => prev + '\n💾 JSON descargado!')
-              } else {
-                setMessage(prev => prev + '\n❌ Error al descargar el JSON')
-              }
-              
-              return true
-            } else if (jobData.status === 'failed') {
-              setMessage(prev => prev + '\n❌ El scraping falló: ' + (jobData.error_message || 'Error desconocido'))
-              return true
-            }
-            
-            return false
-          }
-          
-          // Polling cada 2 segundos
-          const pollInterval = setInterval(async () => {
-            const isDone = await checkStatus()
-            if (isDone) {
-              clearInterval(pollInterval)
-            }
-          }, 2000)
-          
-          // Timeout después de 5 minutos
-          setTimeout(() => {
-            clearInterval(pollInterval)
-            setMessage(prev => prev + '\n⚠️ Timeout - verificá el estado en el admin')
-          }, 300000)
-        }
+      if (!startRes.ok) {
+        throw new Error('Error al iniciar el scraping')
       }
       
+      // Polling para verificar el estado
+      const checkStatus = async () => {
+        const statusRes = await fetch(`/scraping/api/jobs/${responseData.id}/`)
+        const jobData = await statusRes.json()
+        
+        if (jobData.status === 'completed') {
+          // Preparar descarga
+          const downloadRes = await fetch(`/scraping/api/jobs/${responseData.id}/download/`)
+          
+          if (downloadRes.ok) {
+            setDownloadData({
+              blob: () => downloadRes.blob(),
+              filename: `tweets_job_${responseData.id}.json`
+            })
+            
+            setButtonState('download')
+            setStatusMessage({ 
+              text: `Trabajo completado! ${jobData.tweets_count || 0} tweets encontrados.`, 
+              type: 'success' 
+            })
+          } else {
+            throw new Error('Error al preparar la descarga')
+          }
+          
+          return true
+        } else if (jobData.status === 'failed') {
+          throw new Error(jobData.error_message || 'El scraping falló')
+        }
+        
+        return false
+      }
+      
+      // Polling cada 2 segundos
+      const pollInterval = setInterval(async () => {
+        try {
+          const isDone = await checkStatus()
+          if (isDone) {
+            clearInterval(pollInterval)
+          }
+        } catch (error) {
+          clearInterval(pollInterval)
+          setButtonState('create')
+          setStatusMessage({ text: error.message, type: 'error' })
+        }
+      }, 2000)
+      
+      // Timeout después de 5 minutos
+      setTimeout(() => {
+        clearInterval(pollInterval)
+        if (buttonState === 'processing') {
+          setButtonState('create')
+          setStatusMessage({ text: 'Timeout - verificá el estado en el admin', type: 'error' })
+        }
+      }, 300000)
+      
     } catch (error) {
-      console.error('Error completo:', error)
-      setMessage('❌ Error:\n' + error.message)
-    } finally {
-      setLoading(false)
+      console.error('Error:', error)
+      setButtonState('create')
+      setStatusMessage({ text: error.message, type: 'error' })
     }
   }
   
@@ -186,130 +197,146 @@ function App() {
     }))
   }
   
-  return React.createElement('div', { className: "min-h-screen bg-gray-50 p-8" },
-    React.createElement('div', { className: "max-w-4xl mx-auto" },
-      React.createElement('h1', { className: "text-3xl font-bold mb-8" }, 'X Advanced Search'),
-      
-      React.createElement(Card, { className: "mb-6" },
-        React.createElement(CardHeader, {},
-          React.createElement(CardTitle, {}, 'Estado del Sistema')
-        ),
-        React.createElement(CardContent, {},
-          React.createElement('p', {}, `Backend: ${status}`)
+  const getButtonContent = () => {
+    switch (buttonState) {
+      case 'processing':
+        return React.createElement(React.Fragment, {},
+          React.createElement('span', { className: 'spinner' }),
+          'Procesando...'
         )
-      ),
+      case 'download':
+        return 'Descargar Resultados'
+      default:
+        return 'Crear e Iniciar Trabajo'
+    }
+  }
+  
+  const getButtonClass = () => {
+    switch (buttonState) {
+      case 'processing':
+        return 'btn-primary btn-processing'
+      case 'download':
+        return 'btn-primary btn-download'
+      default:
+        return 'btn-primary btn-create'
+    }
+  }
+  
+  return React.createElement('div', { className: 'app-container' },
+    React.createElement('div', { className: 'content-wrapper' },
+      React.createElement('h1', { className: 'app-logo' }, 'X Advanced Search'),
       
-      React.createElement(Card, {},
-        React.createElement(CardHeader, {},
-          React.createElement(CardTitle, {}, 'Crear Trabajo de Scraping')
-        ),
-        React.createElement(CardContent, {},
-          React.createElement('form', { onSubmit: handleSubmit },
-            React.createElement('div', { className: "mb-4" },
-              React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Nombre del trabajo'),
+      React.createElement('div', { className: 'form-card' },
+        React.createElement('h2', { className: 'form-title' }, 'Crear Trabajo de Scraping'),
+        
+        React.createElement('form', { onSubmit: handleSubmit },
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Nombre del trabajo'),
+            React.createElement('input', {
+              type: 'text',
+              name: 'name',
+              value: formData.name,
+              onChange: handleInputChange,
+              className: 'form-input',
+              placeholder: 'Ej: Tweets enero 2024',
+              required: true,
+              disabled: buttonState !== 'create'
+            })
+          ),
+          
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Cuenta X'),
+            React.createElement('select', {
+              name: 'account',
+              value: formData.account,
+              onChange: handleInputChange,
+              className: 'form-select',
+              required: true,
+              disabled: buttonState !== 'create'
+            },
+              React.createElement('option', { value: '' }, 'Seleccionar cuenta...'),
+              accounts.map(acc => 
+                React.createElement('option', { key: acc.id, value: acc.id }, `@${acc.username}`)
+              )
+            )
+          ),
+          
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Usuarios objetivo'),
+            React.createElement('textarea', {
+              name: 'targets',
+              value: formData.targets,
+              onChange: handleInputChange,
+              className: 'form-textarea',
+              placeholder: '@usuario1\n@usuario2\n@usuario3',
+              required: true,
+              disabled: buttonState !== 'create'
+            })
+          ),
+          
+          React.createElement('div', { className: 'date-group' },
+            React.createElement('div', { className: 'form-group' },
+              React.createElement('label', { className: 'form-label' }, 'Fecha desde'),
               React.createElement('input', {
-                type: 'text',
-                name: 'name',
-                value: formData.name,
+                type: 'date',
+                name: 'start_date',
+                value: formData.start_date,
                 onChange: handleInputChange,
-                className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500',
-                placeholder: 'Ej: Tweets enero 2024',
-                required: true
+                className: 'form-input',
+                required: true,
+                disabled: buttonState !== 'create'
               })
             ),
-            
-            React.createElement('div', { className: "mb-4" },
-              React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Cuenta X'),
-              React.createElement('select', {
-                name: 'account',
-                value: formData.account,
+            React.createElement('div', { className: 'form-group' },
+              React.createElement('label', { className: 'form-label' }, 'Fecha hasta'),
+              React.createElement('input', {
+                type: 'date',
+                name: 'end_date',
+                value: formData.end_date,
                 onChange: handleInputChange,
-                className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500',
-                required: true
-              },
-                React.createElement('option', { value: '' }, 'Seleccionar cuenta...'),
-                accounts.map(acc => 
-                  React.createElement('option', { key: acc.id, value: acc.id }, `@${acc.username}`)
+                className: 'form-input',
+                required: true,
+                disabled: buttonState !== 'create'
+              })
+            )
+          ),
+          
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Tipo de búsqueda'),
+            React.createElement('div', { className: 'radio-group' },
+              [
+                { value: 'from', label: 'Tweets DE estos usuarios' },
+                { value: 'to', label: 'Tweets HACIA estos usuarios' },
+                { value: 'mentioning', label: 'Tweets que MENCIONAN a estos usuarios' }
+              ].map(option =>
+                React.createElement('div', { 
+                  key: option.value,
+                  className: 'radio-option'
+                },
+                  React.createElement('input', {
+                    type: 'radio',
+                    name: 'query_type',
+                    id: option.value,
+                    value: option.value,
+                    checked: formData.query_type === option.value,
+                    onChange: handleInputChange,
+                    disabled: buttonState !== 'create'
+                  }),
+                  React.createElement('label', { htmlFor: option.value }, option.label)
                 )
               )
-            ),
-            
-            React.createElement('div', { className: "mb-4" },
-              React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Usuarios objetivo'),
-              React.createElement('textarea', {
-                name: 'targets',
-                value: formData.targets,
-                onChange: handleInputChange,
-                className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500',
-                placeholder: '@usuario1\n@usuario2\n@usuario3',
-                rows: 4,
-                required: true
-              }),
-              React.createElement('p', { className: "text-sm text-gray-500 mt-1" }, 
-                'Un usuario por línea o separados por comas. El @ es opcional.')
-            ),
-            
-            React.createElement('div', { className: "grid grid-cols-2 gap-4 mb-4" },
-              React.createElement('div', {},
-                React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Fecha desde'),
-                React.createElement('input', {
-                  type: 'date',
-                  name: 'start_date',
-                  value: formData.start_date,
-                  onChange: handleInputChange,
-                  className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500',
-                  required: true
-                })
-              ),
-              React.createElement('div', {},
-                React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Fecha hasta'),
-                React.createElement('input', {
-                  type: 'date',
-                  name: 'end_date',
-                  value: formData.end_date,
-                  onChange: handleInputChange,
-                  className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500',
-                  required: true
-                })
-              )
-            ),
-            
-            React.createElement('div', { className: "mb-6" },
-              React.createElement('label', { className: "block text-sm font-medium mb-2" }, 'Tipo de búsqueda'),
-              React.createElement('div', { className: "space-y-2" },
-                [
-                  { value: 'from', label: 'Tweets DE estos usuarios' },
-                  { value: 'to', label: 'Tweets HACIA estos usuarios' },
-                  { value: 'mentioning', label: 'Tweets que MENCIONAN a estos usuarios' }
-                ].map(option =>
-                  React.createElement('label', { 
-                    key: option.value,
-                    className: "flex items-center cursor-pointer"
-                  },
-                    React.createElement('input', {
-                      type: 'radio',
-                      name: 'query_type',
-                      value: option.value,
-                      checked: formData.query_type === option.value,
-                      onChange: handleInputChange,
-                      className: 'mr-2'
-                    }),
-                    React.createElement('span', {}, option.label)
-                  )
-                )
-              )
-            ),
-            
-            message && React.createElement('div', {
-              className: `mb-4 p-3 rounded whitespace-pre-line ${message.includes('✅') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`
-            }, message),
-            
-            React.createElement(Button, {
-              type: 'submit',
-              disabled: loading,
-              className: 'w-full'
-            }, loading ? 'Creando...' : 'Crear Trabajo de Scraping')
-          )
+            )
+          ),
+          
+          React.createElement('button', {
+            type: 'submit',
+            className: getButtonClass(),
+            disabled: buttonState === 'processing'
+          }, getButtonContent()),
+          
+          statusMessage.text && React.createElement('div', {
+            className: `status-message ${statusMessage.type}`
+          }, statusMessage.text)
         )
       )
     )
