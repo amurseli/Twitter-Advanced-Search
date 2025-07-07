@@ -9,7 +9,8 @@ function App() {
     targets: '',
     start_date: '',
     end_date: '',
-    query_type: 'from'
+    query_type: 'from',
+    export_format: 'json'
   })
   
   const handleSubmit = async (e) => {
@@ -34,7 +35,8 @@ function App() {
           targets: '',
           start_date: '',
           end_date: '',
-          query_type: 'from'
+          query_type: 'from',
+          export_format: 'json'
         })
       }, 1000)
       
@@ -67,7 +69,8 @@ function App() {
         target_usernames: targetUsernames,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-        query_type: formData.query_type
+        query_type: formData.query_type,
+        export_format: formData.export_format
       }
       
       const response = await fetch('/scraping/api/jobs/', {
@@ -111,9 +114,10 @@ function App() {
           const downloadRes = await fetch(`/scraping/api/jobs/${responseData.id}/download/`)
           
           if (downloadRes.ok) {
+            const extension = formData.export_format === 'csv' ? 'csv' : 'json'
             setDownloadData({
               blob: () => downloadRes.blob(),
-              filename: `tweets_job_${responseData.id}.json`
+              filename: `tweets_job_${responseData.id}.${extension}`
             })
             
             setButtonState('download')
@@ -274,6 +278,24 @@ function App() {
               )
             ),
             React.createElement('p', { className: 'query-type-help' }, getQueryTypeHelp())
+          ),
+          
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', { className: 'form-label' }, 'Formato de exportación'),
+            React.createElement('div', { className: 'format-selector' },
+              [
+                { value: 'json', label: 'JSON' },
+                { value: 'csv', label: 'CSV' }
+              ].map(option =>
+                React.createElement('button', {
+                  key: option.value,
+                  type: 'button',
+                  className: `format-option ${formData.export_format === option.value ? 'active' : ''}`,
+                  onClick: () => handleInputChange({ target: { name: 'export_format', value: option.value } }),
+                  disabled: buttonState !== 'create'
+                }, option.label)
+              )
+            )
           ),
           
           React.createElement('button', {

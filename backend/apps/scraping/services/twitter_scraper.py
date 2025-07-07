@@ -63,22 +63,22 @@ class TwitterScraper:
             
         print("🔐 Navegando a login...")
         await self.page.goto(f"{self.base_url}i/flow/login")
-        await self.page.wait_for_timeout(3000)
+        await self.page.wait_for_timeout(2000)  # Reducido de 3000
         
         print("📝 Ingresando username...")
         await self.page.fill('input[autocomplete="username"]', self.username)
         await self.page.keyboard.press('Enter')
-        await self.page.wait_for_timeout(3000)
+        await self.page.wait_for_timeout(2000)  # Reducido de 3000
         
         print("🔑 Ingresando password...")
         await self.page.fill('input[type="password"]', self.password)
         await self.page.keyboard.press('Enter')
         
         print("⏳ Esperando login (resolvé el captcha si aparece)...")
-        await self.page.wait_for_timeout(15000)
+        await self.page.wait_for_timeout(10000)  # Reducido de 15000
         
         try:
-            await self.page.wait_for_selector('[data-testid="primaryColumn"]', timeout=30000)
+            await self.page.wait_for_selector('[data-testid="primaryColumn"]', timeout=20000)  # Reducido de 30000
             print("✅ Login exitoso!")
             
             current_url = self.page.url
@@ -168,8 +168,8 @@ class TweetScraper(TwitterScraper):
                 current_start = current_end
                 
                 if current_start < end:
-                    print("⏳ Esperando 3 segundos antes de la siguiente ventana...")
-                    await self.page.wait_for_timeout(3000)
+                    print("⏳ Esperando antes de la siguiente ventana...")
+                    await self.page.wait_for_timeout(1000)  # Reducido de 3000
             
             print(f"\n✅ Búsqueda total completada. Total tweets: {len(self.tweets_data)}")
         else:
@@ -187,7 +187,7 @@ class TweetScraper(TwitterScraper):
         print(f"🔍 Navegando a búsqueda...")
         
         await self.page.goto(url)
-        await self.page.wait_for_timeout(8000)
+        await self.page.wait_for_timeout(5000)  # Reducido de 8000
         
         await self.manual_pause("Verificá que la búsqueda se cargó correctamente")
         
@@ -224,6 +224,7 @@ class TweetScraper(TwitterScraper):
         max_empty_scrolls = 5
         empty_scrolls = 0
         scroll_count = 0
+        consecutive_small_batches = 0
         
         while empty_scrolls < max_empty_scrolls:
             scroll_count += 1
@@ -232,6 +233,9 @@ class TweetScraper(TwitterScraper):
             new_tweets = await self._extract_visible_tweets()
             if new_tweets > 0:
                 print(f"📈 Nuevos tweets extraídos: {new_tweets}. Total: {len(self.tweets_data)}")
+                consecutive_small_batches = 0
+            else:
+                consecutive_small_batches += 1
             
             current_height = await self.page.evaluate("document.body.scrollHeight")
             if current_height == previous_height:
@@ -242,7 +246,14 @@ class TweetScraper(TwitterScraper):
                 
             previous_height = current_height
             await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await self.page.wait_for_timeout(4000)
+            
+            # Timeout dinámico: más rápido si encontramos tweets, más lento si no
+            if new_tweets > 5:
+                await self.page.wait_for_timeout(1500)  # Rápido si hay muchos tweets
+            elif new_tweets > 0 or consecutive_small_batches < 2:
+                await self.page.wait_for_timeout(2000)  # Normal
+            else:
+                await self.page.wait_for_timeout(3000)  # Más lento si no encuentra nada
         
     def _save_to_json(self, users: List[str], query_type: str, 
                      since_date: str, until_date: str):

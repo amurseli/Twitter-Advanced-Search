@@ -119,46 +119,78 @@ class ScrapingJobViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):
+        import csv
+        from django.http import HttpResponse
+        
         job = self.get_object()
         
-        # Buscar el archivo JSON más reciente en la carpeta output
-        output_dir = Path(settings.BASE_DIR) / 'output'
+        if job.export_format == 'csv':
+            # Generar CSV
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="tweets_job_{job.id}_{job.created_at.strftime("%Y%m%d")}.csv"'
+            
+            writer = csv.writer(response)
+            
+            # Headers del CSV
+            writer.writerow([
+                'tweet_id', 'username', 'date', 'text', 
+                'likes', 'retweets', 'replies', 'views',
+                'url', 'is_retweet', 'is_quote'
+            ])
+            
+            # Obtener tweets de la DB
+            tweets = job.tweets.all().order_by('-date')
+            
+            for tweet in tweets:
+                writer.writerow([
+                    tweet.tweet_id,
+                    tweet.username,
+                    tweet.date.isoformat(),
+                    tweet.text,
+                    tweet.like_count,
+                    tweet.retweet_count,
+                    tweet.reply_count,
+                    tweet.analytics_count,
+                    tweet.url,
+                    'Yes' if tweet.is_rt else 'No',
+                    'Yes' if tweet.is_quote else 'No'
+                ])
+            
+            return response
         
-        if not output_dir.exists():
-            return Response({'error': 'No output directory'}, status=404)
-        
-        # Buscar archivos que contengan los usuarios del job
-        target_usernames = list(job.targets.values_list('username', flat=True))
-        
-        # Listar todos los archivos JSON
-        json_files = list(output_dir.glob('*.json'))
-        
-        # Encontrar el archivo más reciente que coincida
-        matching_file = None
-        for file in sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True):
-            file_content = file.read_text(encoding='utf-8')
-            try:
-                data = json.loads(file_content)
-                # Verificar si es del job correcto
-                if 'metadata' in data:
-                    file_targets = data['metadata'].get('target_users', [])
-                    if any(user in file_targets for user in target_usernames):
-                        matching_file = file
-                        break
-            except:
-                continue
-        
-        if not matching_file:
-            return Response({'error': 'No file found for this job'}, status=404)
-        
-        # Devolver el archivo
-        response = FileResponse(
-            open(matching_file, 'rb'),
-            as_attachment=True,
-            filename=f'tweets_job_{job.id}_{job.created_at.strftime("%Y%m%d")}.json'
-        )
-        return response
-
+        else:
+            # JSON original
+            output_dir = Path(settings.BASE_DIR) / 'output'
+            
+            if not output_dir.exists():
+                return Response({'error': 'No output directory'}, status=404)
+            
+            target_usernames = list(job.targets.values_list('username', flat=True))
+            
+            json_files = list(output_dir.glob('*.json'))
+            
+            matching_file = None
+            for file in sorted(json_files, key=lambda x: x.stat().st_mtime, reverse=True):
+                file_content = file.read_text(encoding='utf-8')
+                try:
+                    data = json.loads(file_content)
+                    if 'metadata' in data:
+                        file_targets = data['metadata'].get('target_users', [])
+                        if any(user in file_targets for user in target_usernames):
+                            matching_file = file
+                            break
+                except:
+                    continue
+            
+            if not matching_file:
+                return Response({'error': 'No file found for this job'}, status=404)
+            
+            response = FileResponse(
+                open(matching_file, 'rb'),
+                as_attachment=True,
+                filename=f'tweets_job_{job.id}_{job.created_at.strftime("%Y%m%d")}.json'
+            )
+            return response
 
 @login_required
 def test_scraping(request):

@@ -77,6 +77,18 @@ class ScrapingJob(models.Model):
         ('to', 'Tweets HACIA este usuario'),
         ('mentioning', 'Tweets que MENCIONAN al usuario'),
     ]
+
+    EXPORT_FORMAT_CHOICES = [
+        ('json', 'JSON'),
+        ('csv', 'CSV'),
+    ]
+
+    export_format = models.CharField(
+        max_length=10, 
+        choices=EXPORT_FORMAT_CHOICES,
+        default='json',
+        help_text="Formato de exportación"
+    )
     
     # Configuración del job
     name = models.CharField(max_length=200, blank=True, default='',
