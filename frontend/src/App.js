@@ -264,11 +264,11 @@ function App() {
               value: formData.targets,
               onChange: handleInputChange,
               className: 'form-textarea',
-              placeholder: 'usuario1\nusuario2\nusuario3',
+              placeholder: '@usuario1\n@usuario2\n@usuario3',
               required: true,
               disabled: buttonState !== 'create'
             }),
-            React.createElement('p', { className: 'form-help' }, 'Un usuario por línea, sin @')
+            React.createElement('p', { className: 'form-help' }, 'Un usuario por línea, con @')
           ),
           
           React.createElement('div', { className: 'date-group' },
@@ -287,7 +287,7 @@ function App() {
             React.createElement('div', { className: 'form-group' },
               React.createElement('label', { className: 'form-label' }, 'Fecha hasta'),
               React.createElement('input', {
-                type: 'date',
+                type: 'date', 
                 name: 'end_date',
                 value: formData.end_date,
                 onChange: handleInputChange,
