@@ -4,7 +4,7 @@ services:
   web:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "6060:6060"
     volumes:
       - ./backend:/app
     env_file:
@@ -15,7 +15,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "6070:6070"
     volumes:
       - ./frontend:/app
       - /app/node_modules
