@@ -1,38 +1,21 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 
 function App() {
-  const [accounts, setAccounts] = useState([])
-  const [buttonState, setButtonState] = useState('create') // create, processing, download
+  const [buttonState, setButtonState] = useState('create')
   const [statusMessage, setStatusMessage] = useState({ text: '', type: '' })
   const [downloadData, setDownloadData] = useState(null)
   
   const [formData, setFormData] = useState({
-    account: '',
     targets: '',
     start_date: '',
     end_date: '',
     query_type: 'from'
   })
   
-  useEffect(() => {
-    loadAccounts()
-  }, [])
-  
-  const loadAccounts = async () => {
-    try {
-      const response = await fetch('/scraping/api/accounts/')
-      const data = await response.json()
-      setAccounts(data.results || data)
-    } catch (error) {
-      console.error('Error loading accounts:', error)
-    }
-  }
-  
   const handleSubmit = async (e) => {
     e.preventDefault()
     
     if (buttonState === 'download' && downloadData) {
-      // Descargar el archivo
       const blob = await downloadData.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -43,13 +26,11 @@ function App() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
       
-      // Reset para nuevo trabajo
       setTimeout(() => {
         setButtonState('create')
         setStatusMessage({ text: '', type: '' })
         setDownloadData(null)
         setFormData({
-          account: '',
           targets: '',
           start_date: '',
           end_date: '',
@@ -82,15 +63,13 @@ function App() {
       }
       
       const payload = {
-        name: `Job ${new Date().toISOString()}`, // Nombre automático temporal
-        account: parseInt(formData.account),
+        name: `Job ${new Date().toISOString()}`,
         target_usernames: targetUsernames,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         query_type: formData.query_type
       }
       
-      // Crear el job
       const response = await fetch('/scraping/api/jobs/', {
         method: 'POST',
         headers: {
@@ -116,7 +95,6 @@ function App() {
         throw new Error('Error al crear el job')
       }
       
-      // Iniciar el scraping automáticamente
       const startRes = await fetch(`/scraping/api/jobs/${responseData.id}/start/`, {
         method: 'POST'
       })
@@ -125,13 +103,11 @@ function App() {
         throw new Error('Error al iniciar el scraping')
       }
       
-      // Polling para verificar el estado
       const checkStatus = async () => {
         const statusRes = await fetch(`/scraping/api/jobs/${responseData.id}/`)
         const jobData = await statusRes.json()
         
         if (jobData.status === 'completed') {
-          // Preparar descarga
           const downloadRes = await fetch(`/scraping/api/jobs/${responseData.id}/download/`)
           
           if (downloadRes.ok) {
@@ -157,7 +133,6 @@ function App() {
         return false
       }
       
-      // Polling cada 2 segundos
       const pollInterval = setInterval(async () => {
         try {
           const isDone = await checkStatus()
@@ -171,7 +146,6 @@ function App() {
         }
       }, 2000)
       
-      // Timeout después de 5 minutos
       setTimeout(() => {
         clearInterval(pollInterval)
         if (buttonState === 'processing') {
@@ -240,22 +214,6 @@ function App() {
       React.createElement('div', { className: 'form-card' },
         
         React.createElement('form', { onSubmit: handleSubmit },
-          React.createElement('div', { className: 'form-group' },
-            React.createElement('label', { className: 'form-label' }, 'Cuenta X'),
-            React.createElement('select', {
-              name: 'account',
-              value: formData.account,
-              onChange: handleInputChange,
-              className: 'form-select',
-              required: true,
-              disabled: buttonState !== 'create'
-            },
-              React.createElement('option', { value: '' }, 'Seleccionar cuenta...'),
-              accounts.map(acc => 
-                React.createElement('option', { key: acc.id, value: acc.id }, `@${acc.username}`)
-              )
-            )
-          ),
           
           React.createElement('div', { className: 'form-group' },
             React.createElement('label', { className: 'form-label' }, 'Usuarios objetivo'),
@@ -268,7 +226,7 @@ function App() {
               required: true,
               disabled: buttonState !== 'create'
             }),
-            React.createElement('p', { className: 'form-help' }, 'Un usuario por línea, con @')
+            React.createElement('p', { className: 'form-help' }, 'Un usuario por línea, con o sin @')
           ),
           
           React.createElement('div', { className: 'date-group' },

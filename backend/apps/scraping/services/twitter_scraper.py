@@ -2,7 +2,7 @@ import os
 import re
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urlencode
 from typing import List, Dict
 
@@ -65,27 +65,22 @@ class TwitterScraper:
         await self.page.goto(f"{self.base_url}i/flow/login")
         await self.page.wait_for_timeout(3000)
         
-        # Username
         print("📝 Ingresando username...")
         await self.page.fill('input[autocomplete="username"]', self.username)
         await self.page.keyboard.press('Enter')
         await self.page.wait_for_timeout(3000)
         
-        # Password
         print("🔑 Ingresando password...")
         await self.page.fill('input[type="password"]', self.password)
         await self.page.keyboard.press('Enter')
         
-        # Esperar más tiempo para captcha manual
         print("⏳ Esperando login (resolvé el captcha si aparece)...")
-        await self.page.wait_for_timeout(15000)  # 15 segundos
+        await self.page.wait_for_timeout(15000)
         
-        # Verificar login exitoso
         try:
             await self.page.wait_for_selector('[data-testid="primaryColumn"]', timeout=30000)
             print("✅ Login exitoso!")
             
-            # Verificar que realmente estamos logueados
             current_url = self.page.url
             if "i/flow/login" in current_url:
                 raise Exception("Login falló - seguimos en la página de login")
@@ -94,7 +89,6 @@ class TwitterScraper:
             print(f"❌ Error en login: {str(e)}")
             raise Exception(f"Login falló - verificá las credenciales")
             
-        # Pausa opcional para verificar el login
         await self.manual_pause("Login completado. Verificá que estés en el home")
             
         return True
@@ -116,20 +110,18 @@ class TweetScraper(TwitterScraper):
     def build_search_url(self, users: List[str], query_type: str, 
                         since_date: str, until_date: str) -> str:
         """Arma la URL de búsqueda avanzada"""
-        # Asegurar que los usuarios NO tengan @ al principio
         clean_users = [u.lstrip('@') for u in users]
         print(f"👥 Usuarios a buscar: {clean_users}")
         print(f"📅 Fecha: {since_date} hasta {until_date}")
         print(f"🔍 Tipo: {query_type}")
         
-        # Construir query según el tipo
         if query_type == 'from':
             query_parts = [f"from:{user}" for user in clean_users]
             query = f"({' OR '.join(query_parts)})"
         elif query_type == 'to':
             query_parts = [f"to:{user}" for user in clean_users]
             query = f"({' OR '.join(query_parts)})"
-        else:  # mentioning
+        else:
             query_parts = [f"@{user}" for user in clean_users]
             query = f"({' OR '.join(query_parts)})"
             
@@ -145,54 +137,89 @@ class TweetScraper(TwitterScraper):
         
     async def search_tweets(self, users: List[str], query_type: str,
                            since_date: str, until_date: str):
-        """Ejecuta búsqueda y extrae tweets"""
-        self.tweets_data = []  # Limpiar datos anteriores
+        """Ejecuta búsqueda y extrae tweets - con ventanas de tiempo para períodos largos"""
+        self.tweets_data = []
         
+        start = datetime.strptime(since_date, '%Y-%m-%d')
+        end = datetime.strptime(until_date, '%Y-%m-%d')
+        total_days = (end - start).days
+        
+        if total_days > 30:
+            print(f"📅 Período largo detectado ({total_days} días). Dividiendo en ventanas...")
+            
+            window_size = 14
+            current_start = start
+            window_count = 0
+            
+            while current_start < end:
+                window_count += 1
+                current_end = min(current_start + timedelta(days=window_size), end)
+                
+                print(f"\n🔍 Ventana #{window_count}: {current_start.strftime('%Y-%m-%d')} a {current_end.strftime('%Y-%m-%d')}")
+                
+                await self._search_window(
+                    users, query_type, 
+                    current_start.strftime('%Y-%m-%d'),
+                    current_end.strftime('%Y-%m-%d')
+                )
+                
+                print(f"✅ Ventana #{window_count} completada: {len(self.tweets_data)} tweets totales")
+                
+                current_start = current_end
+                
+                if current_start < end:
+                    print("⏳ Esperando 3 segundos antes de la siguiente ventana...")
+                    await self.page.wait_for_timeout(3000)
+            
+            print(f"\n✅ Búsqueda total completada. Total tweets: {len(self.tweets_data)}")
+        else:
+            await self._search_window(users, query_type, since_date, until_date)
+        
+        if self.tweets_data:
+            self._save_to_json(users, query_type, since_date, until_date)
+        
+        return self.tweets_data
+    
+    async def _search_window(self, users: List[str], query_type: str,
+                            since_date: str, until_date: str):
+        """Búsqueda para una ventana de tiempo específica"""
         url = self.build_search_url(users, query_type, since_date, until_date)
         print(f"🔍 Navegando a búsqueda...")
         
         await self.page.goto(url)
-        await self.page.wait_for_timeout(8000)  # Más tiempo de espera inicial
+        await self.page.wait_for_timeout(8000)
         
-        # Pausa para verificar la búsqueda
         await self.manual_pause("Verificá que la búsqueda se cargó correctamente")
         
-        # Verificar si hay resultados
         empty_state = await self.page.query_selector('[data-testid="empty_state_header_text"]')
         if empty_state:
             empty_text = await empty_state.text_content()
             print(f"❌ No se encontraron tweets. Mensaje: {empty_text}")
-            return []
+            return
             
         print("✅ Página cargada, buscando tweets...")
         
-        # Verificar si hay tweets
         initial_tweets = await self.page.query_selector_all('article[data-testid="tweet"]')
         print(f"📊 Tweets iniciales encontrados: {len(initial_tweets)}")
         
         if len(initial_tweets) == 0:
             print("⚠️ No se encontraron tweets con el selector. Verificando página...")
             
-            # Intentar con otros selectores
             articles = await self.page.query_selector_all('article')
             print(f"📄 Artículos encontrados: {len(articles)}")
             
-            # Buscar cualquier elemento con data-testid
             test_elements = await self.page.query_selector_all('[data-testid]')
             print(f"🔍 Elementos con data-testid: {len(test_elements)}")
             
-            # Imprimir algunos data-testid encontrados
             for i, elem in enumerate(test_elements[:10]):
                 testid = await elem.get_attribute('data-testid')
                 print(f"  - {testid}")
             
-            # Verificar si estamos logueados
             login_prompt = await self.page.query_selector('[href="/login"]')
             if login_prompt:
                 print("❌ No estás logueado! Redirigiendo a login...")
                 raise Exception("Sesión no autenticada - se requiere login")
         
-        # Scrollear y extraer tweets
         previous_height = 0
         max_empty_scrolls = 5
         empty_scrolls = 0
@@ -202,12 +229,10 @@ class TweetScraper(TwitterScraper):
             scroll_count += 1
             print(f"📜 Scroll #{scroll_count}")
             
-            # Extraer tweets visibles
             new_tweets = await self._extract_visible_tweets()
             if new_tweets > 0:
                 print(f"📈 Nuevos tweets extraídos: {new_tweets}. Total: {len(self.tweets_data)}")
             
-            # Scrollear
             current_height = await self.page.evaluate("document.body.scrollHeight")
             if current_height == previous_height:
                 empty_scrolls += 1
@@ -217,30 +242,19 @@ class TweetScraper(TwitterScraper):
                 
             previous_height = current_height
             await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await self.page.wait_for_timeout(4000)  # Más tiempo entre scrolls
-            
-        print(f"✅ Búsqueda completada. Total tweets: {len(self.tweets_data)}")
-        
-        # Guardar resultados en JSON
-        if self.tweets_data:
-            self._save_to_json(users, query_type, since_date, until_date)
-        
-        return self.tweets_data
+            await self.page.wait_for_timeout(4000)
         
     def _save_to_json(self, users: List[str], query_type: str, 
                      since_date: str, until_date: str):
         """Guarda los tweets en un archivo JSON"""
-        # Crear directorio de output si no existe
         output_dir = os.path.join(settings.BASE_DIR, 'output')
         os.makedirs(output_dir, exist_ok=True)
         
-        # Generar nombre de archivo
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        users_str = "_".join(users[:3])  # Primeros 3 usuarios
+        users_str = "_".join(users[:3])
         filename = f"tweets_{users_str}_{query_type}_{timestamp}.json"
         filepath = os.path.join(output_dir, filename)
         
-        # Estructura del JSON
         output = {
             "metadata": {
                 "scraping_date": datetime.now().isoformat(),
@@ -255,7 +269,6 @@ class TweetScraper(TwitterScraper):
             "tweets": self.tweets_data
         }
         
-        # Guardar JSON
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
         
@@ -283,16 +296,14 @@ class TweetScraper(TwitterScraper):
     async def _extract_tweet_data(self, tweet_element) -> Dict:
         """Extrae información de un tweet"""
         try:
-            # Tweet ID desde el link
             link = await tweet_element.query_selector('a[href*="/status/"]')
             if not link:
                 print("    - No se encontró link del tweet")
                 return None
                 
             href = await link.get_attribute('href')
-            tweet_id = href.split('/status/')[-1].split('?')[0]  # Limpiar query params
+            tweet_id = href.split('/status/')[-1].split('?')[0]
             
-            # Username
             user_elem = await tweet_element.query_selector('[data-testid="User-Name"]')
             username_text = await user_elem.text_content() if user_elem else ""
             username_match = re.search(r'@(\w+)', username_text)
@@ -302,22 +313,17 @@ class TweetScraper(TwitterScraper):
                 print("    - No se encontró username")
                 return None
                 
-            # Fecha
             time_elem = await tweet_element.query_selector('time')
             datetime_str = await time_elem.get_attribute('datetime') if time_elem else None
             
-            # Texto
             text_elem = await tweet_element.query_selector('[data-testid="tweetText"]')
             text = await text_elem.text_content() if text_elem else ""
             
-            # Métricas
             metrics = await self._extract_metrics(tweet_element)
             
-            # Multimedia
             has_image = await tweet_element.query_selector('img[src*="pbs.twimg.com/media"]') is not None
             has_video = await tweet_element.query_selector('video') is not None
             
-            # Tipo de tweet
             is_retweet = await tweet_element.query_selector('span:has-text("Retweeted")') is not None
             is_quote = await tweet_element.query_selector('[data-testid="quoteTweet"]') is not None
             
@@ -346,7 +352,6 @@ class TweetScraper(TwitterScraper):
             'views': 0
         }
         
-        # Botones con métricas
         buttons = {
             'replies': '[data-testid="reply"]',
             'retweets': '[data-testid="retweet"]',
@@ -359,7 +364,6 @@ class TweetScraper(TwitterScraper):
                 text = await elem.text_content()
                 metrics[metric] = self._parse_metric_value(text)
                 
-        # Views (analytics)
         analytics = await tweet_element.query_selector('a[href*="/analytics"]')
         if analytics:
             text = await analytics.text_content()
@@ -384,7 +388,6 @@ class TweetScraper(TwitterScraper):
             except:
                 return 0
         else:
-            # Remover comas y convertir
             try:
                 return int(text.replace(',', '') or 0)
             except:

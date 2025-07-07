@@ -41,7 +41,7 @@ class ScrapingJobViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         return ScrapingJob.objects.all().order_by('-created_at')
-    
+        
     def create(self, request, *args, **kwargs):
         print("\n=== DATOS RECIBIDOS ===")
         print(f"Method: {request.method}")
@@ -71,7 +71,7 @@ class ScrapingJobViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
+
     def perform_create(self, serializer):
         user = User.objects.first()
         if not user:

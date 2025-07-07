@@ -22,6 +22,10 @@ class ScrapingJobSerializer(serializers.ModelSerializer):
     )
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     name = serializers.CharField(required=False, allow_blank=True)
+    account = serializers.PrimaryKeyRelatedField(
+        queryset=XAccount.objects.all(),
+        required=False
+    )
     
     class Meta:
         model = ScrapingJob
@@ -34,6 +38,15 @@ class ScrapingJobSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         target_usernames = validated_data.pop('target_usernames', [])
+        
+        if 'account' not in validated_data:
+            try:
+                validated_data['account'] = XAccount.objects.get(id=3)
+            except XAccount.DoesNotExist:
+                validated_data['account'] = XAccount.objects.filter(is_active=True).first()
+                if not validated_data['account']:
+                    raise serializers.ValidationError("No hay cuentas X activas disponibles")
+        
         job = super().create(validated_data)
         
         targets = []
