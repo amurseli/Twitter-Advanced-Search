@@ -10,6 +10,7 @@ from django.conf import settings
 import json
 import os
 from pathlib import Path
+from django.utils import timezone
 
 from .models import XAccount, SearchTarget, ScrapingJob, Tweet
 from .serializers import (
@@ -77,25 +78,41 @@ class ScrapingJobViewSet(viewsets.ModelViewSet):
         if not user:
             user = User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
         serializer.save(created_by=user)
-    
+    # Reemplaza SOLO el método start en views.py:
+
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
         job = self.get_object()
-        
+    
         if job.status != 'pending':
             return Response(
                 {'error': 'Job already started'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        service = ScrapingService(job)
-        service.run()
-        
-        job.refresh_from_db()
-        serializer = self.get_serializer(job)
-        
-        return Response(serializer.data)
+    # Ejecutar en thread separado
+        import threading
+        def run_scraping():
+            try:
+                job.status = 'running'
+                job.started_at = timezone.now()
+                job.save()
+                
+                service = ScrapingService(job)
+                service.run()
+            except Exception as e:
+                job.status = 'failed'
+                job.error_message = str(e)
+                job.completed_at = timezone.now()
+                job.save()
     
+        thread = threading.Thread(target=run_scraping)
+        thread.daemon = True
+        thread.start()
+    
+    # Responder inmediatamente
+        serializer = self.get_serializer(job)
+        return Response(serializer.data) 
+   
     @action(detail=True, methods=['get'])
     def tweets(self, request, pk=None):
         job = self.get_object()

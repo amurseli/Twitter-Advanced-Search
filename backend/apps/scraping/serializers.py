@@ -26,7 +26,7 @@ class ScrapingJobSerializer(serializers.ModelSerializer):
         queryset=XAccount.objects.all(),
         required=False
     )
-    
+
     class Meta:
         model = ScrapingJob
         fields = [
