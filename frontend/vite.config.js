@@ -6,17 +6,19 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 6070,
+    allowedHosts: ['xcraper.chequeabot.com'], 
+    protocol: 'wss',
     proxy: {
       '/api': {
-        target: 'http://web:8000',
+        target: 'http://web:6060',
         changeOrigin: true,
       },
       '/scraping': {
-        target: 'http://web:8000',
+        target: 'http://web6060',
         changeOrigin: true,
       },
       '/admin': {
-        target: 'http://web:8000',
+        target: 'http://web:6060',
         changeOrigin: true,
       }
     }

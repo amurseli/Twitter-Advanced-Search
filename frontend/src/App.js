@@ -12,105 +12,131 @@ function App() {
     query_type: 'from',
     export_format: 'json'
   })
+ const handleSubmit = async (e) => {
+  e.preventDefault()
   
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  if (buttonState === 'download' && downloadData) {
+    const blob = await downloadData.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = downloadData.filename
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
     
-    if (buttonState === 'download' && downloadData) {
-      const blob = await downloadData.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = downloadData.filename
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      
-      setTimeout(() => {
-        setButtonState('create')
-        setStatusMessage({ text: '', type: '' })
-        setDownloadData(null)
-        setFormData({
-          targets: '',
-          start_date: '',
-          end_date: '',
-          query_type: 'from',
-          export_format: 'json'
-        })
-      }, 1000)
-      
-      return
+    setTimeout(() => {
+      setButtonState('create')
+      setStatusMessage({ text: '', type: '' })
+      setDownloadData(null)
+      setFormData({
+        targets: '',
+        start_date: '',
+        end_date: '',
+        query_type: 'from',
+        export_format: 'json'
+      })
+    }, 1000)
+    
+    return
+  }
+  
+  // PREVENIR DOBLE SUBMIT
+  if (buttonState !== 'create') return
+  
+  setButtonState('processing')
+  setStatusMessage({ text: 'Iniciando scraping...', type: 'info' })
+  
+  try {
+    const startDate = new Date(formData.start_date)
+    startDate.setHours(0, 0, 0, 0)
+    
+    const endDate = new Date(formData.end_date)
+    endDate.setHours(23, 59, 59, 999)
+    
+    const targetUsernames = formData.targets
+      .split(/[\n,]/)
+      .map(u => u.trim().replace('@', ''))
+      .filter(u => u.length > 0)
+    
+    if (targetUsernames.length === 0) {
+      throw new Error('Ingresá al menos un usuario')
     }
     
-    if (buttonState !== 'create') return
+    const payload = {
+      name: `Job ${new Date().toISOString()}`,
+      target_usernames: targetUsernames,
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      query_type: formData.query_type,
+      export_format: formData.export_format
+    }
     
-    setButtonState('processing')
-    setStatusMessage({ text: 'El trabajo se está procesando. Esto puede tomar unos minutos...', type: 'info' })
+    console.log('Enviando payload:', payload)
     
-    try {
-      const startDate = new Date(formData.start_date)
-      startDate.setHours(0, 0, 0, 0)
-      
-      const endDate = new Date(formData.end_date)
-      endDate.setHours(23, 59, 59, 999)
-      
-      const targetUsernames = formData.targets
-        .split(/[\n,]/)
-        .map(u => u.trim().replace('@', ''))
-        .filter(u => u.length > 0)
-      
-      if (targetUsernames.length === 0) {
-        throw new Error('Ingresá al menos un usuario')
-      }
-      
-      const payload = {
-        name: `Job ${new Date().toISOString()}`,
-        target_usernames: targetUsernames,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        query_type: formData.query_type,
-        export_format: formData.export_format
-      }
-      
-      const response = await fetch('/scraping/api/jobs/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      })
-      
-      const responseData = await response.json()
-      
-      if (!response.ok) {
-        if (responseData && typeof responseData === 'object') {
-          const errorMessages = []
-          for (const [field, errors] of Object.entries(responseData)) {
-            if (Array.isArray(errors)) {
-              errorMessages.push(`${field}: ${errors.join(', ')}`)
-            } else {
-              errorMessages.push(`${field}: ${errors}`)
-            }
+    // 1. CREAR JOB
+    const response = await fetch('/scraping/api/jobs/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+    
+    const responseData = await response.json()
+    console.log('Job creado:', responseData)
+    
+    if (!response.ok) {
+      if (responseData && typeof responseData === 'object') {
+        const errorMessages = []
+        for (const [field, errors] of Object.entries(responseData)) {
+          if (Array.isArray(errors)) {
+            errorMessages.push(`${field}: ${errors.join(', ')}`)
+          } else {
+            errorMessages.push(`${field}: ${errors}`)
           }
-          throw new Error(errorMessages.join('\n'))
         }
-        throw new Error('Error al crear el job')
+        throw new Error(errorMessages.join('\n'))
       }
-      
-      const startRes = await fetch(`/scraping/api/jobs/${responseData.id}/start/`, {
-        method: 'POST'
-      })
-      
-      if (!startRes.ok) {
-        throw new Error('Error al iniciar el scraping')
-      }
-      
-      const checkStatus = async () => {
+      throw new Error('Error al crear el job')
+    }
+    
+    // 2. INICIAR JOB (SOLO UNA VEZ)
+    setStatusMessage({ text: 'Iniciando scraping...', type: 'info' })
+    
+    const startRes = await fetch(`/scraping/api/jobs/${responseData.id}/start/`, {
+      method: 'POST'
+    })
+    
+    if (!startRes.ok) {
+      const errorData = await startRes.text()
+      console.error('Error al iniciar:', errorData)
+      throw new Error('Error al iniciar el scraping')
+    }
+    
+    console.log('Job iniciado correctamente')
+    setStatusMessage({ text: 'Procesando tweets...', type: 'info' })
+    
+    // 3. POLLING DEL STATUS (SIN LLAMAR A /start/ DE NUEVO)
+    let pollCount = 0
+    const maxPolls = 150 // 5 minutos máximo
+    
+    const checkStatus = async () => {
+      try {
+        // SOLO consultar el job principal, NUNCA /start/
         const statusRes = await fetch(`/scraping/api/jobs/${responseData.id}/`)
+        
+        if (!statusRes.ok) {
+          throw new Error(`Error ${statusRes.status} al consultar status`)
+        }
+        
         const jobData = await statusRes.json()
+        console.log('Status:', jobData.status, 'Tweets:', jobData.tweets_count)
         
         if (jobData.status === 'completed') {
+          setStatusMessage({ text: 'Preparando descarga...', type: 'info' })
+          
           const downloadRes = await fetch(`/scraping/api/jobs/${responseData.id}/download/`)
           
           if (downloadRes.ok) {
@@ -132,39 +158,47 @@ function App() {
           return true
         } else if (jobData.status === 'failed') {
           throw new Error(jobData.error_message || 'El scraping falló')
+        } else if (jobData.status === 'running') {
+          setStatusMessage({ 
+            text: `Procesando... ${jobData.tweets_count || 0} tweets encontrados`, 
+            type: 'info' 
+          })
         }
         
         return false
+      } catch (error) {
+        console.error('Error en polling:', error)
+        throw error
       }
-      
-      const pollInterval = setInterval(async () => {
-        try {
-          const isDone = await checkStatus()
-          if (isDone) {
-            clearInterval(pollInterval)
-          }
-        } catch (error) {
+    }
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        pollCount++
+        if (pollCount > maxPolls) {
           clearInterval(pollInterval)
           setButtonState('create')
-          setStatusMessage({ text: error.message, type: 'error' })
-        }
-      }, 2000)
-      
-      setTimeout(() => {
-        clearInterval(pollInterval)
-        if (buttonState === 'processing') {
-          setButtonState('create')
           setStatusMessage({ text: 'Timeout - verificá el estado en el admin', type: 'error' })
+          return
         }
-      }, 300000)
-      
-    } catch (error) {
-      console.error('Error:', error)
-      setButtonState('create')
-      setStatusMessage({ text: error.message, type: 'error' })
-    }
+        
+        const isDone = await checkStatus()
+        if (isDone) {
+          clearInterval(pollInterval)
+        }
+      } catch (error) {
+        clearInterval(pollInterval)
+        setButtonState('create')
+        setStatusMessage({ text: error.message, type: 'error' })
+      }
+    }, 2000) // Cada 2 segundos
+    
+  } catch (error) {
+    console.error('Error en handleSubmit:', error)
+    setButtonState('create')
+    setStatusMessage({ text: error.message, type: 'error' })
   }
-  
+}   
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({

@@ -23,6 +23,10 @@ DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://xcraper.chequeabot.com"
+]
+
 # Application definition
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -169,6 +173,10 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://xcraper.chequeabot.com",
+    "https://xcraper.chequeabot.com",
+    "http://localhost:6070",
+    "http://127.0.0.1:6070",
 ])
 
 # X Platform Settings (from your existing .env)
@@ -178,10 +186,3 @@ X_EMAIL = env('X_EMAIL', default='')
 
 # Scraping Settings
 SCRAPING_DATA_DIR = BASE_DIR.parent / 'app' / 'data'  # Use existing data directory
-# Agregar puerto 5173 para desarrollo local
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:6070",
-    "http://127.0.0.1:6070",
-])
