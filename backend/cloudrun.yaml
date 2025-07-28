@@ -1,0 +1,32 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: xcraper-backend
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/cloudsql-instances: chequeado-249220:us-central1:cms
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 10
+      timeoutSeconds: 300
+      serviceAccountName: xcraper-backend@chequeado-249220.iam.gserviceaccount.com
+      containers:
+      - image: gcr.io/chequeado-249220/xcraper-backend
+        ports:
+        - containerPort: 6060
+        env:
+        - name: DJANGO_SETTINGS_MODULE
+          value: config.settings.production
+        - name: PORT
+          value: "6060"
+        resources:
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+          requests:
+            cpu: "1"
+            memory: "1Gi"
