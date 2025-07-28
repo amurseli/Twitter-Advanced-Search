@@ -27,4 +27,5 @@ EXPOSE 6060
 
 # Use entrypoint script
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:6060"]
+# Cambio importante: usar Gunicorn en lugar de Django dev server
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:6060", "--workers", "2", "--timeout", "120"]
