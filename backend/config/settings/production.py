@@ -58,8 +58,10 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF
-CSRF_TRUSTED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
-
+CSRF_TRUSTED_ORIGINS = [
+    'https://xcraper-backend-nuevo-86013019965.us-central1.run.app',
+    'https://xcraper.chequeabot.com',
+]
 # Logging para Cloud Run
 LOGGING = {
     'version': 1,

@@ -31,8 +31,14 @@ class TwitterScraper:
         """Inicia Playwright y el navegador"""
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.launch(
-            headless=headless,
-            args=['--disable-blink-features=AutomationControlled']
+        headless=headless,
+        args=[
+                '--disable-blink-features=AutomationControlled',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu'
+            ]
         )
         
     async def close_browser(self):
