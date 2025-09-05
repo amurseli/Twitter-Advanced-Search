@@ -86,3 +86,45 @@ LOGGING = {
 
 # Celery - Desactivado temporalmente
 CELERY_TASK_ALWAYS_EAGER = True
+
+# Agregar nuevo dominio Cloud Run
+CSRF_TRUSTED_ORIGINS.append('https://xcraper-86013019965.us-central1.run.app')
+
+# Desactivar CSRF temporalmente para API
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+# Agregar al final de production.py
+CSRF_TRUSTED_ORIGINS = [
+    'https://xcraper.chequeabot.com',
+    'https://xcraper-86013019965.us-central1.run.app',
+]
+
+# Temporalmente para debugging
+CORS_ALLOWED_ORIGINS = [
+    'https://xcraper.chequeabot.com',
+    'http://localhost:6070',
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # Temporal para testing
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+
+# Fix CORS para frontend
+CORS_ALLOWED_ORIGINS = [
+    'https://xcraper.chequeabot.com',
+    'http://localhost:3000',
+    'http://localhost:6070',
+]
+CORS_ALLOW_ALL_ORIGINS = True  # Temporal para debug
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = ['*']
+CORS_ALLOW_METHODS = ['*']
+
+# Fix CSRF para admin
+CSRF_USE_SESSIONS = True
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Asegurar que el middleware CSRF esté activo
+if 'django.middleware.csrf.CsrfViewMiddleware' not in MIDDLEWARE:
+    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')

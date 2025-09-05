@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
     fonts-liberation \
+    fonts-unifont \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -54,14 +55,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Playwright and browsers
 RUN pip install playwright==1.40.0
 RUN playwright install chromium
-RUN playwright install-deps chromium
+
 
 # Copy project files
 COPY . .
 
 # Make entrypoint executable
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+COPY docker-entrypoint.sh /docker-entrypoin-robust.sh
+RUN chmod +x /docker-entrypoint-robust.sh
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1
@@ -70,5 +71,5 @@ ENV PORT=6060
 
 EXPOSE 6060
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:6060", "--workers", "1", "--timeout", "300", "--worker-class", "sync"]
+ENTRYPOINT ["/docker-entrypoint-robust.sh"]
+CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-6060} --workers 1 --timeout 300 --worker-class sync

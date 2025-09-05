@@ -21,8 +21,6 @@ spec:
         env:
         - name: DJANGO_SETTINGS_MODULE
           value: config.settings.production
-        - name: PORT
-          value: "6060"
         resources:
           limits:
             cpu: "2"
