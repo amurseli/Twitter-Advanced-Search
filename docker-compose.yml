@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  web:
+  backend:
     build: ./backend
     ports:
       - "6060:6060"
@@ -20,6 +20,4 @@ services:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - web
-    environment:
-      - NODE_ENV=development
+      - backend

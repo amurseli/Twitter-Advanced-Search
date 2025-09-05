@@ -1,6 +1,3 @@
-"""
-Production settings for Cloud Run
-"""
 from .base import *
 import os
 
@@ -12,7 +9,6 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[
     '127.0.0.1',
 ])
 
-# Database - Cloud SQL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -24,28 +20,25 @@ DATABASES = {
     }
 }
 
-# Middleware - con WhiteNoise para servir archivos estáticos
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # IMPORTANTE: después de SecurityMiddleware
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Static files con WhiteNoise
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Security
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
@@ -53,16 +46,19 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
-# CORS - Configuración específica para producción
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+    'https://xcraper.chequeabot.com',
+    'https://xcraper-86013019965.us-central1.run.app',
+    'http://localhost:6070',
+])
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF
 CSRF_TRUSTED_ORIGINS = [
     'https://xcraper-backend-nuevo-86013019965.us-central1.run.app',
+    'https://xcraper-86013019965.us-central1.run.app',
     'https://xcraper.chequeabot.com',
 ]
-# Logging para Cloud Run
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -84,47 +80,4 @@ LOGGING = {
     },
 }
 
-# Celery - Desactivado temporalmente
 CELERY_TASK_ALWAYS_EAGER = True
-
-# Agregar nuevo dominio Cloud Run
-CSRF_TRUSTED_ORIGINS.append('https://xcraper-86013019965.us-central1.run.app')
-
-# Desactivar CSRF temporalmente para API
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
-# Agregar al final de production.py
-CSRF_TRUSTED_ORIGINS = [
-    'https://xcraper.chequeabot.com',
-    'https://xcraper-86013019965.us-central1.run.app',
-]
-
-# Temporalmente para debugging
-CORS_ALLOWED_ORIGINS = [
-    'https://xcraper.chequeabot.com',
-    'http://localhost:6070',
-]
-
-CORS_ALLOW_ALL_ORIGINS = True  # Temporal para testing
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
-
-# Fix CORS para frontend
-CORS_ALLOWED_ORIGINS = [
-    'https://xcraper.chequeabot.com',
-    'http://localhost:3000',
-    'http://localhost:6070',
-]
-CORS_ALLOW_ALL_ORIGINS = True  # Temporal para debug
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = ['*']
-CORS_ALLOW_METHODS = ['*']
-
-# Fix CSRF para admin
-CSRF_USE_SESSIONS = True
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
-
-# Asegurar que el middleware CSRF esté activo
-if 'django.middleware.csrf.CsrfViewMiddleware' not in MIDDLEWARE:
-    MIDDLEWARE.insert(4, 'django.middleware.csrf.CsrfViewMiddleware')
