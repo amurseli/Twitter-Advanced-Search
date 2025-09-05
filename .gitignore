@@ -1,200 +1,46 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
+*.pyc
 venv/
 env/
-ENV/
-.venv
-*.pyc
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
+bin/
 lib/
 lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+include/
+pyvenv.cfg
+pip-selfcheck.json
 
-# Django
+# Django  
 *.log
-*.pot
-local_settings.py
 db.sqlite3
-db.sqlite3-journal
-media/
 staticfiles/
-static/
 
-# Environment files - MUY IMPORTANTE
+# Environment
 .env
 .env.*
-!.env.example
-!.env.sample
+env.yaml
 *.env
-env/
-venv/
-.env.local
-.env.*.local
-.env.development
-.env.production
-.env.test
 
-# Credentials and secrets
-secrets/
-credentials/
-*.pem
-*.key
-*.cert
-*.crt
-private/
-secret*
-*_secret*
-*password*
-!*password*.sample
-!*password*.example
+# Node
+node_modules/
 
 # IDE
 .vscode/
-.idea/
-*.swp
-*.swo
-*~
-.project
-.pydevproject
-.settings/
-*.sublime-project
-*.sublime-workspace
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
 
-# Testing
-.coverage
-.pytest_cache/
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-.hypothesis/
-nosetests.xml
-test-results/
+# Docker temp
+docker-compose.test.yml
 
-# Celery
-celerybeat-schedule
-celerybeat.pid
-celerybeat-schedule.db
+# Backend específico
+backend/venv/
+backend/env/
+backend/bin/
+backend/lib/
+backend/lib64/
+backend/__pycache__/
 
-# X Platform Data - CRÍTICO
-# Todos los datos del scraping
-app/data/settings/*.json
-!app/data/settings/@fake_username.json.sample
-app/data/states/*.json
-app/data/tweets/**/*.json
-app/data/tweets/**/*.csv
-app/data/tweets/**/*.xlsx
-app/data/tweets/**/*.txt
-
-# Backend data directories
-backend/data/
-backend/scraped_data/
-backend/exports/
-backend/downloads/
-backend/temp/
-
-# Logs
-logs/
-*.log
-log/
-error.log
-access.log
-
-# Node (para cuando agregues React)
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-lerna-debug.log*
-
-# Production
-*.prod
-*.production
-.env.production.local
-production_settings.py
-
-# Backup
-*.backup
-*.bak
-backup/
-backups/
-*.dump
-*.sql
-
-# Temporary files
-*.tmp
-*.temp
-tmp/
-temp/
-.temp/
-.tmp/
-*.cache
-cache/
-
-# Jupyter Notebooks
-.ipynb_checkpoints
-*.ipynb
-!notebooks/*.ipynb
-
-# Playwright
-playwright-report/
-test-results/
-playwright/.cache/
-
-# Redis
-dump.rdb
-
-# Docker volumes
-docker/volumes/
-.docker/
-
-# Sensitive configuration
-config.json
-!config.example.json
-!config.sample.json
-settings.json
-!settings.example.json
-!settings.sample.json
-
-# API Keys y tokens
-*apikey*
-*api_key*
-*token*
-!*token*.sample
-!*token*.example
-.netrc
-
-id_rsa
-id_rsa.pub
-id_dsa
-id_dsa.pub
-*.ppk
-backend/output/*
+# tweets jsons
+tweets_*.json
