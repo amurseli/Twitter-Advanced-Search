@@ -14,26 +14,19 @@ steps:
       - '--platform=managed'
       - '--region=us-central1'
       - '--allow-unauthenticated'
-      # Puerto coherente con el contenedor escuchando en $PORT (dejamos 8080)
       - '--port=8080'
-      # Recursos para Playwright (ajustables)
       - '--cpu=2'
       - '--memory=4Gi'
       - '--concurrency=1'
-      - '--timeout=300'
+      - '--timeout=3600'
       - '--no-cpu-throttling'
-      # ✅ Camino correcto: VPC Connector + IP PRIVADA (NO usar add-cloudsql-instances)
       - '--vpc-connector=vpc-cr-us-central1'
       - '--vpc-egress=private-ranges-only'
-      # ✅ Env vars consistentes con production.py y la IP privada de tu instancia
       - >-
         --set-env-vars=DJANGO_SETTINGS_MODULE=config.settings.production,
-        DB_NAME=xcraper,
-        DB_USER=xcraper,
-        DB_PASSWORD=5#KpN$_*i%xR07lY,
-        DB_HOST=10.36.194.4,
-        DB_PORT=5432,
+        DB_NAME=xcraper,DB_USER=xcraper,DB_HOST=10.36.194.4,DB_PORT=5432,
         CORS_ALLOWED_ORIGINS=https://xcraper.chequeabot.com
+      - --set-secrets=DB_PASSWORD=xcraper-db-password:latest
       - '--service-account=xcraper-backend@chequeado-249220.iam.gserviceaccount.com'
 
 timeout: 1200s
