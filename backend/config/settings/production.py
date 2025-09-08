@@ -46,17 +46,19 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'https://xcraper.chequeabot.com',
-    'https://xcraper-86013019965.us-central1.run.app',
     'http://localhost:6070',
+    'https://xcraper-86013019965.us-central1.run.app',
 ])
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://xcraper-backend-nuevo-86013019965.us-central1.run.app',
-    'https://xcraper-86013019965.us-central1.run.app',
     'https://xcraper.chequeabot.com',
+    'https://*.run.app'
 ]
 
 LOGGING = {
