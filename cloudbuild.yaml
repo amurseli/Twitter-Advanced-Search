@@ -20,7 +20,7 @@ steps:
       - '--concurrency=1'
       - '--timeout=3600'
       - '--no-cpu-throttling'
-      - '--vpc-connector=vpc-cr-us-central1'
+      - '--vpc-connector=desgrabador-postgre'
       - '--vpc-egress=private-ranges-only'
       - >-
         --set-env-vars=DJANGO_SETTINGS_MODULE=config.settings.production,
